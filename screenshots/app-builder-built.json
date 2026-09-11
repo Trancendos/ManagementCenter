@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "TRANC3 Immune",
+      "hasCanvas": false,
+      "bodyTextLen": 1805,
+      "bodyTextHash": "3e5374ece956a3ef61a1e5319ad8cf067b759286be4d91fc4078695b9e30392e",
+      "bodyTextPrefix": "Skip to content TRANC3 Immune COMMAND CENTER Command Forensics T",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "TRANC3 Immune",
+      "hasCanvas": false,
+      "bodyTextLen": 1669,
+      "bodyTextHash": "f2db083b2ffc2bdb068b6051242b829e0e8f32316d409277ad40b2796338246e",
+      "bodyTextPrefix": "Skip to content TRANC3 Immune LIVE SNAPSHOT · 11 SEP 2026 The bo",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
