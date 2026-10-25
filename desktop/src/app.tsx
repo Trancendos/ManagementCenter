@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { loadConfig, saveConfig, type McConfig } from "./lib/config.ts";
 import { mayEnterManagementCenter } from "./lib/infinity/gate.ts";
 import { restoreSession, saveSession, type InfinitySession } from "./lib/infinity/session.ts";
@@ -15,6 +15,7 @@ export function App() {
   const [session, setSessionState] = useState<InfinitySession | null>(() => restoreSession());
   const [entered, setEntered] = useState(false);
   const [section, setSection] = useState<Section>("overview");
+  const [rearm, setRearm] = useState(0);
 
   useEffect(() => {
     document.documentElement.dataset.theme = config.theme;
@@ -31,7 +32,27 @@ export function App() {
     if (!next) setEntered(false);
   }, []);
 
-  const access = useMemo(() => (session ? mayEnterManagementCenter(session.decision) : null), [session]);
+  // Return to the Gate the moment the token passes its `exp`, not only on the next sign-in or reload.
+  const expiresAt = session?.decision.expiresAt ?? null;
+  useEffect(() => {
+    if (expiresAt === null) return;
+    const markExpired = () => {
+      setSessionState((s) => (s ? { ...s, decision: { ...s.decision, expired: true } } : s));
+      setEntered(false);
+    };
+    const ms = expiresAt * 1000 - Date.now();
+    if (ms <= 0) {
+      markExpired();
+      return;
+    }
+    // setTimeout caps at ~24.8 days; a longer token re-arms the timer instead of expiring early.
+    const MAX_DELAY = 2_147_483_647;
+    const timer = setTimeout(ms > MAX_DELAY ? () => setRearm((n) => n + 1) : markExpired, Math.min(ms, MAX_DELAY));
+    return () => clearTimeout(timer);
+  }, [expiresAt, rearm]);
+
+  // Checked against the clock on every render, so navigation after expiry also closes the Center.
+  const access = session ? mayEnterManagementCenter(session.decision) : null;
 
   if (!session) return <PortalSignIn config={config} onConfigChange={setConfig} onSignedIn={setSession} />;
   if (!entered || !access?.allowed) {

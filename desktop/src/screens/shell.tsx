@@ -72,7 +72,7 @@ interface Props {
 
 export function Shell({ config, onConfigChange, session, section, onNavigate, onSignOut }: Props) {
   return (
-    <div className="grid min-h-screen grid-cols-[248px_1fr]">
+    <div className="mc-shell grid min-h-screen grid-cols-[248px_1fr]">
       <nav aria-label="Management Center" className="flex flex-col gap-4 border-r border-border bg-surface px-3 py-4">
         <div className="px-2">
           <p className="font-display text-base font-semibold">Management Center</p>

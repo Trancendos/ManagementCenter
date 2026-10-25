@@ -55,6 +55,18 @@ test("authorize URL carries PKCE S256, state and nonce", () => {
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
   assert.equal(url.searchParams.get("response_type"), "code");
   assert.equal(url.searchParams.get("state"), "s1");
+  assert.equal(url.searchParams.get("nonce"), "n1");
+});
+
+test("Gate refuses a token with no exp, and one that expires after sign-in", () => {
+  const noExp = evaluate(readClaims(jwt({ sub: "a", role: "admin" })));
+  assert.equal(mayEnterManagementCenter(noExp).allowed, false);
+  assert.match(mayEnterManagementCenter(noExp).reason, /no expiry/);
+  // Evaluated at sign-in while valid, then checked again after exp has passed.
+  const d = evaluate(readClaims(jwt({ sub: "a", role: "admin", exp: 1000 })), 900);
+  assert.equal(d.expired, false);
+  assert.equal(mayEnterManagementCenter(d, 999).allowed, true);
+  assert.equal(mayEnterManagementCenter(d, 1000).allowed, false);
 });
 
 test("callback parsing enforces state and surfaces issuer errors", () => {

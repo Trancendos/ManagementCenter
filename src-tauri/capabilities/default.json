@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Management Center main window. HTTP is limited to the platform services on this machine plus the Infinity issuer.",
+  "description": "Management Center main window. HTTP is limited to Stage Gates (8705), the Atlas CMDB (8765) and Infinity auth (8005) on this machine, plus the Infinity issuer. Keep in step with ALLOWED_ORIGINS in desktop/src/lib/config.ts.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,8 +10,12 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "http://127.0.0.1:*" },
-        { "url": "http://localhost:*" },
+        { "url": "http://127.0.0.1:8705/*" },
+        { "url": "http://localhost:8705/*" },
+        { "url": "http://127.0.0.1:8765/*" },
+        { "url": "http://localhost:8765/*" },
+        { "url": "http://127.0.0.1:8005/*" },
+        { "url": "http://localhost:8005/*" },
         { "url": "https://auth.trancendos.com/*" }
       ]
     }

@@ -20,6 +20,12 @@ export function ProjectGates({ config, session }: Props) {
   const client = useMemo(() => new StageGatesClient(serviceBase("stage-gates", config), session.accessToken), [config, session.accessToken]);
   const list = useAsync(() => client.listDeliverables(), [client]);
   const [selected, setSelected] = useState<string | null>(null);
+  // One Refresh reloads the stage lanes and the open project's criteria and certificates together.
+  const [refreshed, setRefreshed] = useState(0);
+  const refresh = () => {
+    list.reload();
+    setRefreshed((n) => n + 1);
+  };
 
   const byStage = useMemo(() => {
     const groups = new Map(STAGE_ORDER.map((s) => [s, [] as Deliverable[]]));
@@ -34,7 +40,7 @@ export function ProjectGates({ config, session }: Props) {
           <h1 className="text-2xl font-semibold tracking-tight">Project Management · Gates</h1>
           <p className="text-sm text-muted">From TownHall Stage Gates. Each project passes concept → closed; each passed gate is signed off.</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={list.reload} aria-label="Refresh projects"><RefreshCw aria-hidden /> Refresh</Button>
+        <Button variant="secondary" size="sm" onClick={refresh} aria-label="Refresh projects"><RefreshCw aria-hidden /> Refresh</Button>
       </header>
 
       {list.error && <p role="alert" className="text-sm text-danger">{list.error}</p>}
@@ -64,13 +70,13 @@ export function ProjectGates({ config, session }: Props) {
         </div>
       )}
 
-      {selected && <DeliverableDetail key={selected} client={client} id={selected} />}
+      {selected && <DeliverableDetail key={selected} client={client} id={selected} refreshed={refreshed} />}
     </div>
   );
 }
 
-function DeliverableDetail({ client, id }: { client: StageGatesClient; id: string }) {
-  const detail = useAsync(() => Promise.all([client.getDeliverable(id), client.history(id)]), [client, id]);
+function DeliverableDetail({ client, id, refreshed }: { client: StageGatesClient; id: string; refreshed: number }) {
+  const detail = useAsync(() => Promise.all([client.getDeliverable(id), client.history(id)]), [client, id, refreshed]);
   if (detail.error) return <p role="alert" className="text-sm text-danger">{detail.error}</p>;
   if (!detail.data) return <p className="text-sm text-muted">Loading…</p>;
   const [deliverable, history] = detail.data;

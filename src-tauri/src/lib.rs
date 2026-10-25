@@ -32,6 +32,12 @@ fn read_target(stream: &TcpStream) -> Option<String> {
     }
 }
 
+/// The raw `state` value from a query string ("?code=..&state=.."). The UI's state is
+/// base64url, so it never needs percent-decoding to compare.
+fn state_of(query: &str) -> Option<&str> {
+    query.trim_start_matches('?').split('&').find_map(|pair| pair.strip_prefix("state="))
+}
+
 fn respond(mut stream: TcpStream, status: &str, body: &str) {
     let _ = write!(
         stream,
@@ -41,11 +47,16 @@ fn respond(mut stream: TcpStream, status: &str, body: &str) {
 }
 
 /// Binds 127.0.0.1 on a free port, returns the port, and waits in the
-/// background for one `GET /callback?...`. Its query string is emitted to the
-/// UI as `infinity://callback`. The listener closes after that one redirect
-/// or when `timeout_secs` passes.
+/// background for one `GET /callback?...` whose `state` matches the sign-in
+/// attempt. Its query string is emitted to the UI as `infinity://callback`.
+/// Requests with another state are refused and the listener keeps waiting, so
+/// a stray local request cannot use up the one redirect. The listener closes
+/// after the matching redirect or when `timeout_secs` passes.
 #[tauri::command]
-fn infinity_loopback_listen(app: AppHandle, timeout_secs: u64) -> Result<u16, String> {
+fn infinity_loopback_listen(app: AppHandle, timeout_secs: u64, expected_state: String) -> Result<u16, String> {
+    if expected_state.is_empty() {
+        return Err("sign-in state is missing".into());
+    }
     let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|e| format!("cannot open loopback port: {e}"))?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
@@ -60,6 +71,10 @@ fn infinity_loopback_listen(app: AppHandle, timeout_secs: u64) -> Result<u16, St
                     match read_target(&stream) {
                         Some(target) if target.starts_with("/callback?") => {
                             let query = target.trim_start_matches("/callback").to_string();
+                            if state_of(&query) != Some(expected_state.as_str()) {
+                                respond(stream, "400 Bad Request", "Sign-in state did not match.");
+                                continue;
+                            }
                             respond(stream, "200 OK", DONE_PAGE);
                             let _ = app.emit(CALLBACK_EVENT, query);
                             return;
@@ -73,6 +88,19 @@ fn infinity_loopback_listen(app: AppHandle, timeout_secs: u64) -> Result<u16, St
         }
     });
     Ok(port)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::state_of;
+
+    #[test]
+    fn reads_state_from_callback_query() {
+        assert_eq!(state_of("?code=abc&state=s1"), Some("s1"));
+        assert_eq!(state_of("?state=s1&code=abc"), Some("s1"));
+        assert_eq!(state_of("?code=abc"), None);
+        assert_eq!(state_of("?xstate=s1"), None);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

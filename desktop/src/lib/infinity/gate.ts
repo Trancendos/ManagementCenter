@@ -84,7 +84,8 @@ export function evaluate(claims: TokenClaims, nowSeconds = Math.floor(Date.now()
   return {
     identity: claims.preferred_username ?? claims.email ?? claims.name ?? claims.sub ?? "unknown",
     levels,
-    expired: expiresAt !== null && expiresAt <= nowSeconds,
+    // A token without a numeric `exp` never expires, so the Gate does not accept it.
+    expired: expiresAt === null || expiresAt <= nowSeconds,
     expiresAt,
     locations,
   };
@@ -95,8 +96,19 @@ export function levelsFor(decision: GateDecision, location: string): RightsLevel
   return decision.locations[location.toLowerCase()] ?? decision.levels;
 }
 
-export function mayEnterManagementCenter(decision: GateDecision): { allowed: boolean; reason: string } {
-  if (decision.expired) return { allowed: false, reason: "Your Infinity session has expired. Sign in again." };
+/** True once the token has passed its `exp`, checked against the clock now, not only at sign-in. */
+export function isExpired(decision: GateDecision, nowSeconds = Math.floor(Date.now() / 1000)): boolean {
+  return decision.expired || decision.expiresAt === null || decision.expiresAt <= nowSeconds;
+}
+
+export function mayEnterManagementCenter(
+  decision: GateDecision,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): { allowed: boolean; reason: string } {
+  if (decision.expiresAt === null) {
+    return { allowed: false, reason: "This token has no expiry time (exp), so the Gate cannot accept it." };
+  }
+  if (isExpired(decision, nowSeconds)) return { allowed: false, reason: "Your Infinity session has expired. Sign in again." };
   if (!levelsFor(decision, MANAGEMENT_CENTER).includes(REQUIRED_LEVEL)) {
     return {
       allowed: false,

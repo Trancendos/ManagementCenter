@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { classify, formatRef } from "../src/lib/ids.ts";
-import { networkView, type Relationship } from "../src/lib/services/cmdb.ts";
+import { CmdbClient, networkView, type Relationship } from "../src/lib/services/cmdb.ts";
 import { StageGatesClient } from "../src/lib/services/stage-gates.ts";
-import { ServiceError } from "../src/lib/http.ts";
+import { ServiceError, requestJson } from "../src/lib/http.ts";
 
 test("reference numbers classify, including the PID/SID clash", () => {
   assert.equal(classify("PRN-0042"), "project");
@@ -43,4 +43,26 @@ test("Stage Gates client sends the bearer token and surfaces service errors", as
 test("unreachable service becomes status 0", async () => {
   const client = new StageGatesClient("http://127.0.0.1:1", null, async () => { throw new TypeError("fetch failed"); });
   await assert.rejects(client.health(), (e: unknown) => e instanceof ServiceError && e.status === 0);
+});
+
+test("CMDB client follows offset/total so no page is silently dropped", async () => {
+  const offsets: string[] = [];
+  const fake = async (url: string) => {
+    const offset = Number(new URL(url).searchParams.get("offset"));
+    offsets.push(String(offset));
+    const data = Array.from({ length: Math.min(200, 450 - offset) }, (_, i) => ({ id: String(offset + i) }));
+    return new Response(JSON.stringify({ data, total: 450, limit: 200, offset }));
+  };
+  const page = await new CmdbClient("http://127.0.0.1:8765", fake).locations("web");
+  assert.deepEqual(offsets, ["0", "200", "400"]);
+  assert.equal(page.data.length, 450);
+});
+
+test("requests time out when a service sends headers and then stalls the body", async () => {
+  const fake = async (_url: string, init?: RequestInit) =>
+    new Response(new ReadableStream({ start(c) { init?.signal?.addEventListener("abort", () => c.error(new DOMException("Aborted", "AbortError"))); } }));
+  await assert.rejects(
+    requestJson({ service: "CMDB", url: "http://127.0.0.1:8765/api/health", timeoutMs: 50, fetchImpl: fake }),
+    (e: unknown) => e instanceof ServiceError && e.status === 0 && /timed out/.test(e.message),
+  );
 });

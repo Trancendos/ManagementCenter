@@ -11,7 +11,7 @@ Checked 2026-10-25. Rule: free, open-source licence, no paid tier needed, a name
 | DEP-MC-D05 | tauri-plugin-opener / @tauri-apps/plugin-opener | 2.7.2 | MIT OR Apache-2.0 | Free | Open the Infinity login page in the system browser | `open` crate (MIT) in a command |
 | DEP-MC-D06 | WiX Toolset v3 (fetched by Tauri at bundle time) | 3.x | MS-RL | Free | MSI installer | NSIS only (exe) |
 | DEP-MC-D07 | NSIS (fetched by Tauri at bundle time) | 3.x | zlib/libpng | Free | setup.exe installer | WiX only (MSI) |
-| DEP-MC-D08 | Microsoft Edge WebView2 runtime | system | Free redistributable | Free | Webview on Windows | Ships with Windows 10/11; bootstrapper embedded by Tauri |
+| DEP-MC-D08 | Microsoft Edge WebView2 runtime | system | Free redistributable | Free | Webview on Windows | No alternative: Tauri requires WebView2 on Windows. It ships with Windows 10/11, and the embedded bootstrapper installs it when absent. |
 
 The loopback OAuth listener is written with the Rust standard library only (no `tauri-plugin-oauth`), to avoid a
 dependency. PKCE uses WebCrypto (built in). No new runtime npm packages beyond the Tauri ones above.

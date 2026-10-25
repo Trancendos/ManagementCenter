@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardDesc, CardHeader, CardTitle } from "@/components/ui/card";
-import { DEFAULT_CONFIG, type McConfig } from "../lib/config.ts";
+import { DEFAULT_CONFIG, urlProblem, type McConfig } from "../lib/config.ts";
 
 interface Props {
   config: McConfig;
@@ -17,12 +17,20 @@ const FIELDS: { key: keyof Omit<McConfig, "theme">; label: string; hint: string 
   { key: "cmdbUrl", label: "CMDB (Service Management Center)", hint: "Atlas CMDB, default port 8765. Must match its CMDB_PUBLIC_ORIGIN." },
 ];
 
+const URL_FIELDS = new Set<keyof McConfig>(["infinityIssuer", "stageGatesUrl", "cmdbUrl"]);
+
 export function SettingsForm({ config, onChange }: Props) {
   const [draft, setDraft] = useState(config);
   const [saved, setSaved] = useState(false);
 
+  const problems = Object.fromEntries(
+    FIELDS.filter((f) => URL_FIELDS.has(f.key)).map((f) => [f.key, urlProblem(draft[f.key])]),
+  ) as Partial<Record<keyof McConfig, string | null>>;
+  const invalid = Object.values(problems).some(Boolean);
+
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (invalid) return;
     onChange(draft);
     setSaved(true);
   }
@@ -44,11 +52,13 @@ export function SettingsForm({ config, onChange }: Props) {
                 setSaved(false);
                 setDraft({ ...draft, [f.key]: e.target.value });
               }}
-              aria-describedby={`cfg-${f.key}-hint`}
+              aria-describedby={problems[f.key] ? `cfg-${f.key}-hint cfg-${f.key}-error` : `cfg-${f.key}-hint`}
+              aria-invalid={problems[f.key] ? true : undefined}
               spellCheck={false}
               className="h-9 rounded-md border border-border bg-elevated px-2 font-mono text-sm text-fg"
             />
             <p id={`cfg-${f.key}-hint`} className="text-xs text-muted">{f.hint}</p>
+            {problems[f.key] && <p id={`cfg-${f.key}-error`} role="alert" className="text-xs text-danger">{problems[f.key]}</p>}
           </div>
         ))}
         <fieldset className="flex items-center gap-2">
@@ -61,9 +71,9 @@ export function SettingsForm({ config, onChange }: Props) {
               variant={draft.theme === theme ? "primary" : "secondary"}
               aria-pressed={draft.theme === theme}
               onClick={() => {
-                const next = { ...draft, theme };
-                setDraft(next);
-                onChange(next);
+                // Persist only the theme; other unsaved edits stay in the draft until Save.
+                setDraft({ ...draft, theme });
+                onChange({ ...config, theme });
               }}
             >
               {theme === "dark" ? <Moon aria-hidden /> : <Sun aria-hidden />} {theme === "dark" ? "Black" : "White"}
@@ -71,7 +81,7 @@ export function SettingsForm({ config, onChange }: Props) {
           ))}
         </fieldset>
         <div className="flex items-center gap-2">
-          <Button type="submit">Save</Button>
+          <Button type="submit" disabled={invalid}>Save</Button>
           <Button type="button" variant="ghost" onClick={() => setDraft({ ...DEFAULT_CONFIG, theme: draft.theme })}>Reset to defaults</Button>
           <span role="status" className="text-sm text-ok">{saved ? "Saved." : ""}</span>
         </div>

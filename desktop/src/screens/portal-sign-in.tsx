@@ -63,7 +63,7 @@ export function PortalSignIn({ config, onConfigChange, onSignedIn }: Props) {
             password is ever typed into this app.
           </CardDesc>
         </CardHeader>
-        <Button onClick={portal} disabled={!portalReady || busy} className="w-full" aria-describedby="portal-hint">
+        <Button onClick={portal} disabled={!portalReady || busy} className="w-full" aria-describedby={portalReady ? undefined : "portal-hint"}>
           <LogIn aria-hidden /> {busy ? "Waiting for the browser…" : "Sign in with Infinity"}
         </Button>
         {!portalReady && (

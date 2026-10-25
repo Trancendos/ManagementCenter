@@ -17,7 +17,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { McConfig } from "../config.ts";
 import { isTauri } from "../http.ts";
-import { evaluate, readClaims, type GateDecision } from "./gate.ts";
+import { evaluate, readClaims, type GateDecision, type TokenClaims } from "./gate.ts";
 import { buildAuthorizeUrl, discover, exchangeCode, parseCallback, type TokenSet } from "./oidc.ts";
 import { challengeFor, createVerifier, randomToken } from "./pkce.ts";
 
@@ -34,19 +34,21 @@ export interface InfinitySession {
 const KEY = "mc.session.v1";
 
 /** Rights are read from the access token when it is a JWT, else from the ID token. */
-export function sessionFromTokens(method: SignInMethod, tokens: TokenSet): InfinitySession {
-  let claimsSource = tokens.access_token;
+function claimsOf(tokens: TokenSet): TokenClaims {
   try {
-    readClaims(claimsSource);
+    return readClaims(tokens.access_token);
   } catch {
     if (!tokens.id_token) throw new Error("Neither the access token nor an ID token carries readable claims.");
-    claimsSource = tokens.id_token;
+    return readClaims(tokens.id_token);
   }
+}
+
+export function sessionFromTokens(method: SignInMethod, tokens: TokenSet): InfinitySession {
   return {
     method,
     accessToken: tokens.access_token,
     idToken: tokens.id_token ?? null,
-    decision: evaluate(readClaims(claimsSource)),
+    decision: evaluate(claimsOf(tokens)),
     signedInAt: Date.now(),
   };
 }
@@ -65,8 +67,9 @@ export function restoreSession(): InfinitySession | null {
     const raw = sessionStorage.getItem(KEY);
     if (!raw) return null;
     const session = JSON.parse(raw) as InfinitySession;
-    // Re-evaluate expiry now rather than trusting the stored decision.
-    return { ...session, decision: evaluate(readClaims(session.accessToken)) };
+    // Re-evaluate expiry now rather than trusting the stored decision, from the same token sign-in used.
+    const tokens = { access_token: session.accessToken, id_token: session.idToken ?? undefined };
+    return { ...session, decision: evaluate(claimsOf(tokens)) };
   } catch {
     return null;
   }
@@ -86,8 +89,8 @@ export async function signInWithPortal(config: McConfig, timeoutMs = 5 * 60_000)
   const state = randomToken();
   const nonce = randomToken();
 
-  // Rust binds 127.0.0.1 on a free port and waits for exactly one redirect.
-  const port = await invoke<number>("infinity_loopback_listen", { timeoutSecs: Math.ceil(timeoutMs / 1000) });
+  // Rust binds 127.0.0.1 on a free port and waits for exactly one redirect carrying this state.
+  const port = await invoke<number>("infinity_loopback_listen", { timeoutSecs: Math.ceil(timeoutMs / 1000), expectedState: state });
   const redirectUri = `http://127.0.0.1:${port}/callback`;
 
   const query = new Promise<string>((resolve, reject) => {

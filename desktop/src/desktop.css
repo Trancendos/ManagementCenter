@@ -22,5 +22,19 @@
 
 @media print {
   nav, .no-print { display: none !important; }
-  body { background: #fff !important; color: #000 !important; }
+  /* With the nav gone, give the page content the full width instead of the 248px nav column. */
+  .mc-shell { grid-template-columns: minmax(0, 1fr) !important; }
+  /* Certificates always print black on white, whichever theme is on screen. */
+  :root, :root[data-theme="light"], :root[data-theme="dark"] {
+    --color-bg: #ffffff;
+    --color-surface: #ffffff;
+    --color-elevated: #ffffff;
+    --color-fg: #000000;
+    --color-muted: #333333;
+    --color-subtle: #555555;
+    --color-border: #cccccc;
+    --color-border-strong: #999999;
+    --shadow-panel: none;
+  }
+  body, #app { background: #fff !important; color: #000 !important; }
 }

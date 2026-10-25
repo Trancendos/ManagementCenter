@@ -61,6 +61,9 @@ export interface Finding {
   reference: string;
 }
 
+/** The CMDB's largest page size. */
+const PAGE_SIZE = 200;
+
 export interface Page<T> {
   data: T[];
   total: number;
@@ -109,10 +112,25 @@ export class CmdbClient {
     return this.call("/login", "POST", { username, password }, { Origin: origin.replace(/\/+$/, "") });
   }
 
-  locations(q = "", offset = 0): Promise<Page<CmdbItem>> {
-    const params = new URLSearchParams({ kind: "location", limit: "200", offset: String(offset) });
-    if (q) params.set("q", q);
-    return this.call(`/items?${params.toString()}`);
+  /**
+   * Follows `offset`/`total` until every record is loaded, so nothing past the first page is silently dropped.
+   * Stops at `maxPages` (200 records each) as a guard against a service that never reports an end.
+   */
+  async allPages<T>(path: string, params: Record<string, string>, maxPages = 50): Promise<Page<T>> {
+    const data: T[] = [];
+    let total = 0;
+    for (let page = 0; page < maxPages; page++) {
+      const query = new URLSearchParams({ ...params, limit: String(PAGE_SIZE), offset: String(data.length) });
+      const res = await this.call<Page<T>>(`${path}?${query.toString()}`);
+      data.push(...res.data);
+      total = res.total;
+      if (res.data.length === 0 || data.length >= total) break;
+    }
+    return { data, total, limit: data.length, offset: 0 };
+  }
+
+  locations(q = ""): Promise<Page<CmdbItem>> {
+    return this.allPages("/items", q ? { kind: "location", q } : { kind: "location" });
   }
 
   item(id: string): Promise<CmdbItem> {
@@ -120,11 +138,11 @@ export class CmdbClient {
   }
 
   relationships(itemId: string): Promise<Page<Relationship>> {
-    return this.call(`/relationships?item_id=${encodeURIComponent(itemId)}&limit=200`);
+    return this.allPages("/relationships", { item_id: itemId });
   }
 
   findings(itemId: string): Promise<Page<Finding>> {
-    return this.call(`/findings?item_id=${encodeURIComponent(itemId)}&limit=200`);
+    return this.allPages("/findings", { item_id: itemId });
   }
 }
 

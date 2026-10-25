@@ -36,8 +36,9 @@ export async function discover(issuer: string, fetchImpl?: FetchLike): Promise<D
   if (!doc.authorization_endpoint || !doc.token_endpoint) {
     throw new Error("The Infinity issuer's discovery document has no authorization or token endpoint.");
   }
-  // OIDC Discovery 1.0 section 4.3: the issuer in the document must match the one we asked.
-  if (doc.issuer && doc.issuer.replace(/\/+$/, "") !== base) {
+  // OIDC Discovery 1.0 section 4.3: the document must name an issuer, and it must match the one we asked.
+  if (!doc.issuer) throw new Error("The Infinity issuer's discovery document does not name its issuer. Sign-in refused.");
+  if (doc.issuer.replace(/\/+$/, "") !== base) {
     throw new Error(`Issuer mismatch: asked ${base}, document says ${doc.issuer}.`);
   }
   return doc as Discovery;

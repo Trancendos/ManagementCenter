@@ -29,7 +29,16 @@ CMDB until the read-only release has been reviewed.
    Center opens only for `admin` (a per-location grant for `management-center` overrides platform-wide levels).
 3. **Infinity-One** — the account behind the issuer. Not called directly yet (its repo is a README only).
 
-The Gate check is a UI decision. Each service verifies the token itself before acting.
+The Gate check is a UI decision. Stage Gates verifies the Infinity bearer token itself before acting. The Atlas CMDB
+does not accept Infinity tokens: it checks its own cookie session, opened with a separate CMDB sign-in on the Locations
+screen (it has no SSO yet).
+
+The Gate re-checks expiry against the clock: when the token's `exp` passes, the app returns to the Gate. A token without
+an `exp` is refused.
+
+The desktop app can only reach the origins in `src-tauri/capabilities/default.json`: ports 8705 (Stage Gates), 8765
+(CMDB) and 8005 (Infinity auth) on `127.0.0.1`/`localhost`, plus `https://auth.trancendos.com`. Settings refuses any
+other URL. To use a different port, add it to both the capability file and `ALLOWED_ORIGINS` in `desktop/src/lib/config.ts`.
 
 Tokens live in `sessionStorage` only; closing the app signs you out. The CMDB password is never stored.
 

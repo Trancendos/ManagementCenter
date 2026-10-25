@@ -89,7 +89,7 @@ function LocationBrowser({ cmdb, config, session }: { cmdb: CmdbClient; config: 
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight"><Boxes className="size-5" aria-hidden /> Locations</h1>
           <p className="text-sm text-muted">CMDB items of kind “location”. {list.data ? `${list.data.total} found.` : ""}</p>
         </header>
-        <form role="search" onSubmit={(e) => { e.preventDefault(); setApplied(query); }} className="flex gap-2">
+        <form role="search" onSubmit={(e) => { e.preventDefault(); setApplied(query); setSelected(null); }} className="flex gap-2">
           <label htmlFor="loc-q" className="sr-only">Search locations</label>
           <input id="loc-q" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, owner, tag" className="h-9 flex-1 rounded-md border border-border bg-elevated px-2 text-sm text-fg" />
           <Button type="submit" size="sm" variant="secondary" aria-label="Search"><Search aria-hidden /></Button>
@@ -107,7 +107,7 @@ function LocationBrowser({ cmdb, config, session }: { cmdb: CmdbClient; config: 
           ))}
         </ul>
       </section>
-      {selected ? <LocationRecord key={selected.id} cmdb={cmdb} item={selected} config={config} session={session} /> : (
+      {selected && (list.data?.data ?? []).some((i) => i.id === selected.id) ? <LocationRecord key={selected.id} cmdb={cmdb} item={selected} config={config} session={session} /> : (
         <p className="text-sm text-muted">Choose a Location to see its network, findings and projects.</p>
       )}
     </div>

@@ -79,6 +79,7 @@ export async function requestJson<T>({
   const allHeaders: Record<string, string> = { Accept: "application/json", ...headers };
   if (body !== undefined) allHeaders["Content-Type"] = "application/json";
   let res: Response;
+  let text: string;
   try {
     res = await doFetch(url, {
       method,
@@ -87,13 +88,20 @@ export async function requestJson<T>({
       signal: controller.signal,
       credentials: "include",
     });
+    // Read the body inside the timed block too: a service that sends headers then stalls must still time out.
+    text = await Promise.race([
+      res.text(),
+      new Promise<never>((_, reject) => {
+        if (controller.signal.aborted) reject(new DOMException("Aborted", "AbortError"));
+        controller.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      }),
+    ]);
   } catch (e) {
     const reason = e instanceof Error && e.name === "AbortError" ? "timed out" : "is unreachable";
     throw new ServiceError(service, 0, null, `${service} ${reason} at ${url}`);
   } finally {
     clearTimeout(timer);
   }
-  const text = await res.text();
   let parsed: unknown = null;
   if (text) {
     try {
