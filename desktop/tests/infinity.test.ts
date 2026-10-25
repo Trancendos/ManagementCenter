@@ -38,6 +38,23 @@ test("Gate accepts a per-location admin grant", () => {
   assert.equal(mayEnterManagementCenter(d).allowed, true);
 });
 
+test("Gate follows Infinity-One ext.rights for the Management Center", () => {
+  const admin = evaluate(readClaims(jwt({ sub: "a", ext: { rights: { "management-center": "admin" } }, exp: future })));
+  assert.equal(admin.rightsAuthoritative, true);
+  assert.equal(mayEnterManagementCenter(admin).allowed, true);
+
+  const viewer = evaluate(readClaims(jwt({ sub: "a", role: "admin", ext: { rights: { "management-center": "viewer" } }, exp: future })));
+  assert.equal(mayEnterManagementCenter(viewer).allowed, false);
+
+  // ext.rights present but no Management Center key: refused, even with a platform-wide admin role.
+  const missing = evaluate(readClaims(jwt({ sub: "a", role: "admin", ext: { rights: { townhall: "admin" } }, exp: future })));
+  assert.equal(mayEnterManagementCenter(missing).allowed, false);
+
+  // ext.rights wins over the older permissions claim.
+  const both = evaluate(readClaims(jwt({ sub: "a", permissions: { "management-center": ["admin"] }, ext: { rights: { "management-center": "viewer" } }, exp: future })));
+  assert.equal(mayEnterManagementCenter(both).allowed, false);
+});
+
 test("readClaims rejects non-JWT input", () => {
   assert.throws(() => readClaims("not-a-token"));
 });

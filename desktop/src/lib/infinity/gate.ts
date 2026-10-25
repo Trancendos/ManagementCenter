@@ -23,8 +23,10 @@ export interface TokenClaims {
   role?: string;
   roles?: unknown;
   groups?: unknown;
-  /** Per-location permissions from Infinity-One, e.g. {"management-center": ["admin"]}. */
+  /** Per-location permissions, e.g. {"management-center": ["admin"]}. Kept for older tokens. */
   permissions?: unknown;
+  /** Infinity-One extension claims. `ext.rights` maps a location slug to its level, e.g. {"management-center": "admin"}. */
+  ext?: { rights?: unknown; [key: string]: unknown };
   [key: string]: unknown;
 }
 
@@ -35,6 +37,12 @@ export interface GateDecision {
   expiresAt: number | null;
   /** Locations the person may enter, keyed by location slug. */
   locations: Record<string, RightsLevel[]>;
+  /**
+   * True when the token carries Infinity-One `ext.rights`. Those rights are then the only
+   * source for location access: a location missing from them is refused, with no fall back
+   * to platform-wide roles.
+   */
+  rightsAuthoritative: boolean;
 }
 
 export const MANAGEMENT_CENTER = "management-center";
@@ -73,12 +81,17 @@ export function evaluate(claims: TokenClaims, nowSeconds = Math.floor(Date.now()
   const levels = [...new Set([...strings(claims.role), ...strings(claims.roles), ...strings(claims.groups)].map(normalise))];
 
   const locations: Record<string, RightsLevel[]> = {};
-  if (claims.permissions && typeof claims.permissions === "object" && !Array.isArray(claims.permissions)) {
-    for (const [slug, value] of Object.entries(claims.permissions as Record<string, unknown>)) {
+  const merge = (source: unknown) => {
+    if (!source || typeof source !== "object" || Array.isArray(source)) return false;
+    for (const [slug, value] of Object.entries(source as Record<string, unknown>)) {
       const granted = strings(value).map(normalise);
       if (granted.length) locations[slug.toLowerCase()] = granted;
     }
-  }
+    return true;
+  };
+  merge(claims.permissions);
+  // Infinity-One rights go last so they win over the older `permissions` claim.
+  const rightsAuthoritative = merge(claims.ext?.rights);
 
   const expiresAt = typeof claims.exp === "number" ? claims.exp : null;
   return {
@@ -88,12 +101,18 @@ export function evaluate(claims: TokenClaims, nowSeconds = Math.floor(Date.now()
     expired: expiresAt === null || expiresAt <= nowSeconds,
     expiresAt,
     locations,
+    rightsAuthoritative,
   };
 }
 
-/** The levels this person holds for one location: per-location grants win, else platform-wide levels. */
+/**
+ * The levels this person holds for one location: per-location grants win, else platform-wide levels.
+ * When the token carries Infinity-One `ext.rights`, a location missing from them gets no levels.
+ */
 export function levelsFor(decision: GateDecision, location: string): RightsLevel[] {
-  return decision.locations[location.toLowerCase()] ?? decision.levels;
+  const granted = decision.locations[location.toLowerCase()];
+  if (granted) return granted;
+  return decision.rightsAuthoritative ? [] : decision.levels;
 }
 
 /** True once the token has passed its `exp`, checked against the clock now, not only at sign-in. */

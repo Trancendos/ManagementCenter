@@ -23,7 +23,7 @@ export interface McConfig {
 export const DEFAULT_CONFIG: McConfig = {
   infinityIssuer: "",
   infinityClientId: "management-center",
-  infinityScope: "openid profile email roles",
+  infinityScope: "openid email profile infinity offline_access",
   stageGatesUrl: "http://127.0.0.1:8705",
   cmdbUrl: "http://127.0.0.1:8765",
   theme: "dark",

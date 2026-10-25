@@ -12,7 +12,7 @@ tokens and UI components.
 |---|---|---|
 | Infinity Portal sign-in (OIDC + PKCE, loopback redirect) | Built, not yet tested against a live issuer | `desktop/src/lib/infinity/` |
 | Development sign-in (paste a token) | Built and tested | same |
-| Infinity Gate: rights navigator, Admin-only entry | Built and tested | `gate.ts` |
+| Infinity Gate: rights navigator, Admin-only entry (follows Infinity-One `ext.rights`) | Built and tested | `gate.ts` |
 | Project Management > Gates (projects by stage, criteria, sign-off certificates, print) | Built and tested against Stage Gates v1.0.0 | `project-gates.tsx` |
 | Service Management Center > Locations (CMDB items, Network, vulnerabilities, projects) | Built and tested against Atlas CMDB v1.0.0 demo data | `locations.tsx` |
 | Incidents, Service Requests, Changes, Problems, Knowledge Base, Agile, Network Topology | Planned placeholders only; no backing service yet | `planned.tsx` |
@@ -25,9 +25,16 @@ CMDB until the read-only release has been reviewed.
 
 1. **Infinity Portal** — `Sign in with Infinity` opens the issuer's login page in the system browser. Rust listens once
    on `127.0.0.1:<random port>/callback` (RFC 8252). The code is exchanged with PKCE (RFC 7636); state and nonce are checked.
-2. **Infinity Gate** — reads `role`, `roles`, `groups` and per-location `permissions` from the token. The Management
-   Center opens only for `admin` (a per-location grant for `management-center` overrides platform-wide levels).
-3. **Infinity-One** — the account behind the issuer. Not called directly yet (its repo is a README only).
+2. **Infinity Gate** — reads `role`, `roles`, `groups`, per-location `permissions` and Infinity-One's `ext.rights` from
+   the token. When the token carries `ext.rights`, it is authoritative: the Management Center opens only if
+   `ext.rights["management-center"]` is `admin`, and a missing `management-center` key is refused (no fall back to
+   platform-wide roles). Older tokens without `ext.rights` keep the earlier rule: `admin`, with a per-location grant for
+   `management-center` overriding platform-wide levels.
+3. **Infinity-One** — the account service behind the issuer, in Trancendos/Infinity-One PR #1 (not yet merged or
+   deployed). Contract: client ID `management-center`, scopes `openid email profile infinity offline_access`, tokens
+   signed RS256 and published through JWKS.
+
+A configuration saved before this change keeps its old scope. Update the scope in Settings, or reset to defaults.
 
 The Gate check is a UI decision. Stage Gates verifies the Infinity bearer token itself before acting. The Atlas CMDB
 does not accept Infinity tokens: it checks its own cookie session, opened with a separate CMDB sign-in on the Locations
