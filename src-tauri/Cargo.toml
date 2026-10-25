@@ -1,0 +1,31 @@
+[package]
+name = "management-center"
+version = "0.1.0"
+description = "Trancendos Management Center desktop client (Windows exe + MSI)"
+authors = ["Trancendos"]
+license = "UNLICENSED"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "management_center_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# HTTP from Rust so the services' "no CORS" stance is respected; cookie jar for the CMDB session;
+# unsafe-headers lets the CMDB login send its own Origin, which its write guard requires.
+tauri-plugin-http = { version = "2", features = ["cookies", "unsafe-headers"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
